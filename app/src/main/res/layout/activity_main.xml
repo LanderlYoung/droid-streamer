@@ -13,7 +13,8 @@
     <Button
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
+        android:layout_alignParentBottom="true"
+
         android:background="@drawable/button_backgrond_circle"
         android:drawablePadding="8dp"
         android:drawableRight="@drawable/ic_menu_send"

@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">Droid Streamer</string>
+    <string name="short_stream_disable_message">start stream</string>
+    <string name="short_stream_long_label">start stream</string>
+    <string name="short_stream_short_label">stream</string>
 </resources>

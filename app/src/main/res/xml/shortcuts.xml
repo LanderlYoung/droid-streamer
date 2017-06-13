@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:tools="http://schemas.android.com/tools"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_cast_connected"
+        android:shortcutDisabledMessage="@string/short_stream_disable_message"
+        android:shortcutLongLabel="@string/short_stream_long_label"
+        android:shortcutShortLabel="@string/short_stream_short_label"
+        android:shortcutId="stream"
+
+        tools:targetApi="25"
+        >
+        <intent
+            android:targetClass="io.github.landerlyoung.droidstreamer.StreamingService"
+            android:targetPackage="io.github.landerlyoung.droidstreamer"
+            />
+    </shortcut>
+</shortcuts>
