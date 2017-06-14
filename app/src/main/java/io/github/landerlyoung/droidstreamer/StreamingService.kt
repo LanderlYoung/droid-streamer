@@ -19,10 +19,11 @@ import android.util.Log
 class StreamingService : Service() {
     lateinit var messenger: Messenger
 
-    companion object X{
+    companion object {
         const val TAG = "StreamingService"
         const val MSG_GET_STREAMING_UTL = 0
         const val MSG_GET_CURRENT_STATUS = 1
+        const val MSG_START_STREAMING = 2
     }
 
     override fun onCreate() {
@@ -50,6 +51,10 @@ class StreamingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         return START_NOT_STICKY
+    }
+
+    private fun startStreaming() {
+
     }
 
 }
