@@ -4,13 +4,7 @@ import android.app.Activity
 import android.content.ComponentName
 import android.content.Intent
 import android.content.ServiceConnection
-import android.hardware.display.DisplayManager
-import android.hardware.display.VirtualDisplay
-import android.media.projection.MediaProjection
-import android.media.projection.MediaProjectionManager
-import android.os.Bundle
-import android.os.IBinder
-import android.view.SurfaceView
+import android.os.*
 import org.jetbrains.anko.mediaProjectionManager
 import org.jetbrains.anko.toast
 
@@ -21,15 +15,20 @@ class MainActivity : Activity(), ServiceConnection {
         const val CREATE_SCREEN_CAPTURE_REQUEST_CODE: Int = 0xbabe
     }
 
-    private lateinit var projectionManager: MediaProjectionManager
-    private lateinit var mediaProjection: MediaProjection
+    private var projectionIntent: Intent? = null
+    private var projectionResultCode = 0
+
+    private var messenger: Messenger? = null
+    private val callbackMessenger = Messenger(Handler {
+
+        true
+    })
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         findViewById(R.id.stream_button)?.setOnClickListener { toggleStreaming() }
-
-        projectionManager = mediaProjectionManager
 
         bindService(Intent(this, StreamingService::class.java), this, BIND_AUTO_CREATE)
     }
@@ -39,12 +38,15 @@ class MainActivity : Activity(), ServiceConnection {
         unbindService(this)
     }
 
-    override fun onServiceDisconnected(name: ComponentName?) {
-        TODO("not implemented")
+    override fun onServiceDisconnected(name: ComponentName) {
     }
 
-    override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-        TODO("not implemented")
+    override fun onServiceConnected(name: ComponentName, service: IBinder) {
+        messenger = Messenger(service)
+
+        projectionIntent?.let { intent ->
+            startStreaming(projectionResultCode, intent)
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -53,35 +55,27 @@ class MainActivity : Activity(), ServiceConnection {
             if (resultCode != RESULT_OK || data == null) {
                 toast("denied")
             } else {
-                startStreaming(resultCode, data)
+                if (!startStreaming(resultCode, data)) {
+                    projectionIntent = data
+                    projectionResultCode = resultCode
+                }
             }
         }
     }
 
     private fun toggleStreaming() {
         // start
-        startActivityForResult(projectionManager.createScreenCaptureIntent(), CREATE_SCREEN_CAPTURE_REQUEST_CODE)
+        startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(), CREATE_SCREEN_CAPTURE_REQUEST_CODE)
     }
 
-    private fun startStreaming(resultCode: Int, data: Intent) {
-        val proj: MediaProjection? = projectionManager.getMediaProjection(resultCode, data)
+    private fun startStreaming(resultCode: Int, data: Intent): Boolean = messenger?.let { messenger ->
+        val msg = Message.obtain()
+        msg.what = StreamingService.MSG_START_STREAMING
+        msg.obj = data
+        msg.arg1 = resultCode
+        msg.replyTo = callbackMessenger
+        messenger.send(msg)
 
-        proj?.let {
-            mediaProjection = proj
-            createVirtualDisplay()
-            return
-        }
-    }
-
-    private fun createVirtualDisplay(): VirtualDisplay {
-        val surface = findViewById(R.id.surface) as SurfaceView
-
-        return mediaProjection.createVirtualDisplay(
-                "ScreenSharingDemo",
-                720, 1080, 1,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                surface.holder.surface,
-                null /*Handler*/, null) /*Callbacks*/
-    }
-
+        true
+    } ?: false
 }

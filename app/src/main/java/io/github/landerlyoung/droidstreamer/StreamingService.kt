@@ -26,22 +26,26 @@ class StreamingService : Service() {
         const val MSG_START_STREAMING = 2
     }
 
+    enum class StreamingState {
+        IDEL,
+        STARTING,
+        STREAMING,
+    }
+
     override fun onCreate() {
         super.onCreate()
         messenger = Messenger(Handler { msg ->
-            if (msg.replyTo != null) {
-                try {
-                    when (msg.what) {
-                        MSG_GET_STREAMING_UTL -> {
-                        }
-                        MSG_GET_CURRENT_STATUS -> {
-                        }
-                        else -> return@Handler false
+            try {
+                when (msg.what) {
+                    MSG_GET_STREAMING_UTL -> {
                     }
-                    return@Handler true
-                } catch (e: RemoteException) {
-                    Log.e(TAG, "error in handle message", e)
+                    MSG_GET_CURRENT_STATUS -> {
+                    }
+                    else -> return@Handler false
                 }
+                return@Handler true
+            } catch (e: RemoteException) {
+                Log.e(TAG, "error in handle message", e)
             }
             return@Handler false
         })
