@@ -29,6 +29,8 @@
                 android:resource="@xml/shortcuts"
                 />
         </activity>
+
+        <service android:name=".service.StreamingService" />
     </application>
 
 </manifest>

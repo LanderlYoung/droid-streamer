@@ -5,6 +5,8 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.*
+import android.util.Log
+import io.github.landerlyoung.droidstreamer.service.StreamingService
 import org.jetbrains.anko.mediaProjectionManager
 import org.jetbrains.anko.toast
 
@@ -12,6 +14,7 @@ import org.jetbrains.anko.toast
 class MainActivity : Activity(), ServiceConnection {
 
     companion object {
+        const val TAG = "MainActivity"
         const val CREATE_SCREEN_CAPTURE_REQUEST_CODE: Int = 0xbabe
     }
 
@@ -19,8 +22,9 @@ class MainActivity : Activity(), ServiceConnection {
     private var projectionResultCode = 0
 
     private var messenger: Messenger? = null
-    private val callbackMessenger = Messenger(Handler {
+    private val callbackMessenger = Messenger(Handler { msg ->
 
+        Log.i(TAG, "callbackMessenger msg:$msg")
         true
     })
 
@@ -68,14 +72,13 @@ class MainActivity : Activity(), ServiceConnection {
         startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(), CREATE_SCREEN_CAPTURE_REQUEST_CODE)
     }
 
-    private fun startStreaming(resultCode: Int, data: Intent): Boolean = messenger?.let { messenger ->
+    private fun startStreaming(resultCode: Int, data: Intent): Boolean = messenger?.run { ->
         val msg = Message.obtain()
         msg.what = StreamingService.MSG_START_STREAMING
         msg.obj = data
         msg.arg1 = resultCode
         msg.replyTo = callbackMessenger
-        messenger.send(msg)
-
+        send(msg)
         true
     } ?: false
 }

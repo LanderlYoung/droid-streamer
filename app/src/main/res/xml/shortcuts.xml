@@ -12,7 +12,7 @@
         tools:targetApi="25"
         >
         <intent
-            android:targetClass="io.github.landerlyoung.droidstreamer.StreamingService"
+            android:targetClass="io.github.landerlyoung.droidstreamer.service.StreamingService"
             android:targetPackage="io.github.landerlyoung.droidstreamer"
             />
     </shortcut>
