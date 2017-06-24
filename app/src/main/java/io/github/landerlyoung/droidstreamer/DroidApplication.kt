@@ -10,7 +10,7 @@ import android.app.Application
  * Life with Passion, Code with Creativity.
  * </pre>
  */
-class Application : Application() {
+class DroidApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         Global.installApplication(this)

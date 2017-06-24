@@ -7,6 +7,10 @@ import android.media.MediaFormat
 import android.os.Handler
 import android.os.Messenger
 import android.util.Log
+import io.github.landerlyoung.droidstreamer.Global
+import java.io.File
+import java.io.FileOutputStream
+import java.nio.channels.FileChannel
 
 /**
  * <pre>
@@ -41,20 +45,9 @@ class StreamingService : Service() {
                 MSG_GET_CURRENT_STATUS -> {
                 }
                 MSG_START_STREAMING -> {
-                    ScreenMirrorManager(msg.arg1, msg.obj as Intent, 720, 1080, object : DataSink() {
-                        override fun onOutputBufferAvailable(codec: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {
-                            Log.i(TAG, "StreamingService")
-                        }
-
-                        override fun onInputBufferAvailable(codec: MediaCodec, index: Int) {
-                        }
-
-                        override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
-                        }
-
-                        override fun onError(codec: MediaCodec, e: MediaCodec.CodecException) {
-                        }
-                    })
+                    msg.obj.run {
+                        startStreaming(this as Intent, msg.arg1)
+                    }
                 }
                 else -> return@Handler false
             }
@@ -62,6 +55,43 @@ class StreamingService : Service() {
             Log.i(TAG, "handle msg $msg")
             return@Handler true
         })
+    }
+
+    fun startStreaming(intent: Intent, resultCode: Int) {
+        val mgr = ScreenMirrorManager.build {
+            projection(resultCode, intent)
+            dataSink(object : DataSink() {
+                var fileChannel: FileChannel? = null
+                override fun onInputBufferAvailable(codec: MediaCodec, index: Int) {
+                    Log.i(TAG, "onInputBufferAvailable: ")
+                }
+
+                override fun onOutputBufferAvailable(codec: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {
+                    super.onOutputBufferAvailable(codec, index, info)
+                    Log.i(TAG, "onOutputBufferAvailable: ")
+                    if (fileChannel == null) {
+                        val output = File(Global.app.externalCacheDir, "cap_${System.currentTimeMillis()}.h264")
+                        fileChannel = FileOutputStream(output)
+                                .channel
+
+                        Log.i(TAG, "create output file $output")
+                    }
+                    val buffer = codec.getOutputBuffer(index)
+                    Log.i(TAG, "write buffer")
+                    fileChannel?.write(buffer)
+                    codec.releaseOutputBuffer(index, false)
+
+                }
+
+                override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
+                    super.onOutputFormatChanged(codec, format)
+                    Log.i(TAG, "onOutputFormatChanged: ")
+                }
+
+            }, Global.secondaryThreadHandler)
+
+            streamSize(720, 1280)
+        }
     }
 
     override fun onBind(intent: Intent?) = messenger.binder!!

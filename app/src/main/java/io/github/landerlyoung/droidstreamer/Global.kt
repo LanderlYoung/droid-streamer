@@ -13,15 +13,21 @@ import java.util.concurrent.atomic.AtomicReference
  * </pre>
  */
 object Global {
-    private val _app: AtomicReference<Application> = AtomicReference()
-    val secondaryThread = HandlerThread("SecondaryThread")
-    val secondaryThreadHandler = Handler(secondaryThread.looper)
+    private val _app: AtomicReference<DroidApplication> = AtomicReference()
+    val secondaryThread: HandlerThread
+    val secondaryThreadHandler: Handler
 
-    val app: Application
+    init {
+        secondaryThread = HandlerThread("SecondaryThread")
+        secondaryThread.start()
+        secondaryThreadHandler = Handler(secondaryThread.looper)
+    }
+
+    val app: DroidApplication
         get() = _app.get() ?: throw IllegalStateException("application is not set")
 
 
-    fun installApplication(app: Application) {
+    fun installApplication(app: DroidApplication) {
         if (!_app.compareAndSet(null, app)) {
             throw IllegalStateException("can set application only once")
         }
