@@ -69,7 +69,10 @@ class StreamingService : Service() {
                 }
 
                 override fun onOutputBufferAvailable(codec: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {
-                    Log.i(TAG, "onOutputBufferAvailable index:$index flag:${info.flags}")
+                    Log.i(TAG, "onOutputBufferAvailable index:$index " +
+                            "flag:${info.flags} " +
+                            "isKey:${info.flags == MediaCodec.BUFFER_FLAG_KEY_FRAME}")
+
                     if (fileChannel == null) {
                         val output = File(Global.app.externalCacheDir, "cap_${System.currentTimeMillis()}.h264")
                         fileChannel = FileOutputStream(output)
@@ -91,7 +94,7 @@ class StreamingService : Service() {
                     Log.i(TAG, "onError")
                 }
 
-            }, Global.secondaryThreadHandler)
+            }, Global.secondaryHandler)
 
             streamSize(720, 1280)
         }

@@ -6,7 +6,10 @@ import android.hardware.display.VirtualDisplay
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
+import android.media.projection.MediaProjection
+import android.os.Bundle
 import android.os.Handler
+import android.support.annotation.IntRange
 import android.view.Surface
 import io.github.landerlyoung.droidstreamer.Global
 import io.github.landerlyoung.droidstreamer.utils.setCallbackOnHandler
@@ -25,39 +28,98 @@ class ScreenMirrorManager
 private constructor(projectionResultCode: Int,
                     projectionIntent: Intent,
                     width: Int, height: Int,
-                    dataSink: DataSink, callbackHandler: Handler?) {
+                    dataSink: DataSink,
+                    callbackHandler: Handler?,
+                    onStreamStopListener: OnStreamStopListener?) {
 
     private val virtualDisplay: VirtualDisplay
-    private val h264Codec: MediaCodec
+    private val videoEncoder: MediaCodec
+    private val mediaProjection: MediaProjection
     private val inputSurface: Surface
     private val displayCallback: VirtualDisplay.Callback? = null
+    private val projectionCallback = object : MediaProjection.Callback() {
+        override fun onStop() {
+            onStreamStopListener?.run {
+                onStreamStop()
+            }
+        }
+    }
 
     init {
+        mediaProjection = Global.app.mediaProjectionManager
+                .getMediaProjection(projectionResultCode, projectionIntent)
+
+        if (mediaProjection == null) {
+            throw IllegalArgumentException("cannot obtain MediaProjection")
+        }
+        mediaProjection.registerCallback(projectionCallback, Global.mainHandler)
+
         try {
-            h264Codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+            videoEncoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
         } catch (e: IOException) {
             throw IllegalStateException("cannot create h264 encoder", e)
         }
-        h264Codec.setCallbackOnHandler(dataSink, callbackHandler)
+        videoEncoder.setCallbackOnHandler(dataSink, callbackHandler)
         val format =  MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height)
         format.setInteger(MediaFormat.KEY_BIT_RATE, 4 * 1000 * 1000)
         format.setInteger(MediaFormat.KEY_FRAME_RATE, 24)
         format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 5)
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
                 MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-        h264Codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+        videoEncoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
 
-        inputSurface = h264Codec.createInputSurface()
+        inputSurface = videoEncoder.createInputSurface()
 
-        virtualDisplay = Global.app.mediaProjectionManager
-                .getMediaProjection(projectionResultCode, projectionIntent)
+        virtualDisplay = mediaProjection
                 .createVirtualDisplay("DroidStreamer",
                         width, height, 1,
                         DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                         inputSurface,
-                        displayCallback, null)
+                        displayCallback, Global.mainHandler)
 
-        h264Codec.start()
+        videoEncoder.start()
+    }
+
+    fun yieldKeyFrame(): Boolean {
+        val param = Bundle()
+        param.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0)
+        return setParam(param)
+    }
+
+    fun changeBitRate(
+            @IntRange(from = 1, to = Integer.MAX_VALUE.toLong())
+            newBitRage: Int): Boolean {
+        val param = Bundle()
+        param.putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, newBitRage)
+        return setParam(param)
+    }
+
+    fun pauseEncoder(): Boolean {
+        val param = Bundle()
+        param.putInt(MediaCodec.PARAMETER_KEY_SUSPEND, 1)
+        return setParam(param)
+    }
+
+    fun resumeEncoder(): Boolean {
+        val param = Bundle()
+        param.putInt(MediaCodec.PARAMETER_KEY_SUSPEND, 0)
+        return setParam(param)
+    }
+
+    private fun setParam(param: Bundle): Boolean {
+        try {
+            videoEncoder.setParameters(param)
+            return true
+        } catch (e: IllegalStateException) {
+            return false
+        }
+    }
+
+    fun release() {
+        mediaProjection.stop()
+        virtualDisplay.release()
+        videoEncoder.stop()
+        videoEncoder.release()
     }
 
     class Builder {
@@ -70,6 +132,7 @@ private constructor(projectionResultCode: Int,
         private var dataSink: DataSink? = null
 
         private var callbackHandler: Handler? = null
+        private var streamStopListener: OnStreamStopListener? = null
 
         fun projection(resultCode: Int, resultIntent: Intent) = apply {
             projectionResultCode = resultCode
@@ -89,6 +152,10 @@ private constructor(projectionResultCode: Int,
             this.callbackHandler = callbackHandler
         }
 
+        fun streamStopListener(streamStopListener: OnStreamStopListener?) = apply {
+            this.streamStopListener = streamStopListener
+        }
+
         fun build(): ScreenMirrorManager {
             val intent = projectionIntent ?: throw IllegalStateException()
             val sink = this.dataSink ?: throw IllegalStateException()
@@ -99,16 +166,16 @@ private constructor(projectionResultCode: Int,
 
             return ScreenMirrorManager(projectionResultCode,
                     intent, width, height,
-                    sink, callbackHandler)
+                    sink,
+                    callbackHandler,
+                    streamStopListener)
         }
-
     }
 
     companion object {
         inline fun build(block: Builder.() -> Unit): ScreenMirrorManager {
             return Builder().apply(block).build()
         }
-
     }
 }
 
@@ -120,4 +187,8 @@ abstract class DataSink : MediaCodec.Callback() {
     override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {}
 
     override fun onError(codec: MediaCodec, e: MediaCodec.CodecException) {}
+}
+
+interface OnStreamStopListener {
+    fun onStreamStop()
 }

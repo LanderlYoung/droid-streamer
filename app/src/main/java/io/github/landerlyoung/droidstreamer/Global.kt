@@ -2,6 +2,7 @@ package io.github.landerlyoung.droidstreamer
 
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -14,18 +15,18 @@ import java.util.concurrent.atomic.AtomicReference
  */
 object Global {
     private val _app: AtomicReference<DroidApplication> = AtomicReference()
+
+    val app: DroidApplication
+        get() = _app.get() ?: throw IllegalStateException("application is not set")
     val secondaryThread: HandlerThread
-    val secondaryThreadHandler: Handler
+    val secondaryHandler: Handler
+    val mainHandler = Handler(Looper.getMainLooper())
 
     init {
         secondaryThread = HandlerThread("SecondaryThread")
         secondaryThread.start()
-        secondaryThreadHandler = Handler(secondaryThread.looper)
+        secondaryHandler = Handler(secondaryThread.looper)
     }
-
-    val app: DroidApplication
-        get() = _app.get() ?: throw IllegalStateException("application is not set")
-
 
     fun installApplication(app: DroidApplication) {
         if (!_app.compareAndSet(null, app)) {
