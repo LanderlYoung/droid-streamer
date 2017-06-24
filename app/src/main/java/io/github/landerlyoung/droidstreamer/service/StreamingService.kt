@@ -38,7 +38,6 @@ class StreamingService : Service(), Handler.Callback {
         // callback
         const val MSG_UPDATE_STREAM_STATES = 6
 
-
         const val NOTIFICATION_ID = 100
     }
 
@@ -94,6 +93,8 @@ class StreamingService : Service(), Handler.Callback {
                 notifyState(currentState, msg.replyTo)
             }
             MSG_REGISTER_CALLBACK -> {
+                Log.i(TAG, "MSG_REGISTER_CALLBACK: ${msg.replyTo} ")
+
                 msg.replyTo?.let {
                     callbackList.add(msg.replyTo)
                     notifyState(currentState, msg.replyTo)
@@ -140,6 +141,8 @@ class StreamingService : Service(), Handler.Callback {
     }
 
     private fun notifyState(state: StreamState, replyMessenger: Messenger?): Boolean {
+        Log.i(TAG, "notifyState: ")
+        
         replyMessenger?.let {
             try {
                 val msg = Message.obtain()

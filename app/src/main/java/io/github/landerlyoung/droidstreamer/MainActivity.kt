@@ -70,7 +70,7 @@ class MainActivity : Activity(), ServiceConnection {
 
         val regMsg = Message.obtain()
         regMsg.what = StreamingService.MSG_REGISTER_CALLBACK
-        regMsg.replyTo = messenger
+        regMsg.replyTo = callbackMessenger
         messenger.send(regMsg)
 
         ready = true
