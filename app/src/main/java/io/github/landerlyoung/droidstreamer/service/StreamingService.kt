@@ -1,13 +1,13 @@
 package io.github.landerlyoung.droidstreamer.service
 
+import android.app.Notification
 import android.app.Service
 import android.content.Intent
-import android.os.Handler
-import android.os.Message
-import android.os.Messenger
-import android.os.RemoteException
+import android.graphics.drawable.BitmapDrawable
+import android.os.*
 import android.util.Log
 import io.github.landerlyoung.droidstreamer.Global
+import io.github.landerlyoung.droidstreamer.R
 import java.io.File
 
 /**
@@ -23,7 +23,7 @@ class StreamingService : Service(), Handler.Callback {
     private var streamManager: ScreenMirrorManager? = null
     private val callbackList: MutableList<Messenger> = mutableListOf()
     private val currentState: StreamState
-        get() = StreamState(false)
+        get() = StreamState(streamManager != null)
 
     companion object {
         const val TAG = "StreamingService"
@@ -37,6 +37,9 @@ class StreamingService : Service(), Handler.Callback {
 
         // callback
         const val MSG_UPDATE_STREAM_STATES = 6
+
+
+        const val NOTIFICATION_ID = 100
     }
 
     override fun onCreate() {
@@ -44,18 +47,34 @@ class StreamingService : Service(), Handler.Callback {
         messenger = Messenger(Handler(this))
     }
 
-    override fun onBind(intent: Intent?) = messenger.binder!!
+    override fun onBind(intent: Intent?): IBinder? {
+        Log.i(TAG, "onBind: $intent")
+        return messenger.binder!!
+    }
 
     override fun onUnbind(intent: Intent?): Boolean {
+        Log.i(TAG, "onUnbind: $intent")
         return super.onUnbind(intent)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.i(TAG, "onStartCommand: $intent")
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
         Log.i(TAG, "onDestroy")
+    }
+
+    private fun startForeground() {
+        val noti = Notification.Builder(this)
+                .setContentTitle("Streaming")
+                .setContentText("Click to see more details")
+//                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", null)
+                .setSmallIcon(R.drawable.ic_cast_connected)
+                .setLargeIcon((resources.getDrawable(R.mipmap.ic_launcher_round) as BitmapDrawable).bitmap)
+                .build()
+        startForeground(NOTIFICATION_ID, noti)
     }
 
     override fun handleMessage(msg: Message): Boolean {
@@ -77,6 +96,7 @@ class StreamingService : Service(), Handler.Callback {
             MSG_REGISTER_CALLBACK -> {
                 msg.replyTo?.let {
                     callbackList.add(msg.replyTo)
+                    notifyState(currentState, msg.replyTo)
                 }
             }
             MSG_UNREGISTER_CALLBACK -> {
@@ -92,6 +112,9 @@ class StreamingService : Service(), Handler.Callback {
     }
 
     fun startStream(intent: Intent, resultCode: Int) {
+        startService(Intent(this, StreamingService::class.java))
+        startForeground()
+
         streamManager = ScreenMirrorManager.build {
             projection(resultCode, intent)
             dataSink(SaveToFileDataSink("${Global.app.externalCacheDir}${File.separator}cap_${System.currentTimeMillis()}.h264"),
@@ -111,6 +134,9 @@ class StreamingService : Service(), Handler.Callback {
         streamManager = null
 
         broadcastState()
+
+        stopForeground(true)
+        stopSelf()
     }
 
     private fun notifyState(state: StreamState, replyMessenger: Messenger?): Boolean {

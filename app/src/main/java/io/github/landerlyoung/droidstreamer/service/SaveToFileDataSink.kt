@@ -19,17 +19,21 @@ import java.nio.channels.FileChannel
 class SaveToFileDataSink(private val fileName: String) : DataSink {
     var fileChannel: FileChannel? = null
 
+    companion object {
+        const val TAG = "SaveToFileDataSink"
+    }
+
     override fun onBufferAvailable(buffer: ByteBuffer, presentationTimeUs: Long, isKeyFrame: Boolean) {
-        Log.i(StreamingService.TAG, "onBufferAvailable  presentationTimeUs:$presentationTimeUs isKeyFrame:$isKeyFrame")
+        Log.i(TAG, "onBufferAvailable  presentationTimeUs:$presentationTimeUs isKeyFrame:$isKeyFrame")
 
         if (fileChannel == null) {
             val output = File(fileName)
             fileChannel = FileOutputStream(output)
                     .channel
 
-            Log.i(StreamingService.TAG, "create output file $output")
+            Log.i(TAG, "create output file $output")
         }
-        Log.i(StreamingService.TAG, "write buffer")
+        Log.i(TAG, "write buffer")
         fileChannel?.write(buffer)
     }
 
@@ -41,10 +45,10 @@ class SaveToFileDataSink(private val fileName: String) : DataSink {
     }
 
     override fun onFormatChanged(format: MediaFormat) {
-        Log.i(StreamingService.TAG, "onFormatChanged: ")
+        Log.i(TAG, "onFormatChanged: ")
     }
 
     override fun onError(e: Exception) {
-        Log.i(StreamingService.TAG, "onError")
+        Log.i(TAG, "onError")
     }
 }

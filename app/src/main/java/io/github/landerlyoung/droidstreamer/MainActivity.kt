@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.*
 import android.util.Log
+import android.widget.Button
 import io.github.landerlyoung.droidstreamer.service.StreamState
 import io.github.landerlyoung.droidstreamer.service.StreamingService
 import org.jetbrains.anko.mediaProjectionManager
@@ -31,20 +32,37 @@ class MainActivity : Activity(), ServiceConnection {
         true
     })
 
+    private var ready = false
+    private var isStream = false
+
+
+    // view
+    private lateinit var startButton: Button
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        findViewById(R.id.stream_button)?.setOnClickListener { toggleStreaming() }
+        startButton = findViewById(R.id.stream_button) as Button
+        startButton.setOnClickListener {
+            toggleStreaming()
+        }
 
         bindService(Intent(this, StreamingService::class.java), this, BIND_AUTO_CREATE)
     }
 
     override fun onDestroy() {
         super.onDestroy()
+
+        val regMsg = Message.obtain()
+        regMsg.what = StreamingService.MSG_UNREGISTER_CALLBACK
+        regMsg.replyTo = messenger
+        messenger.send(regMsg)
+
         unbindService(this)
     }
 
     override fun onServiceDisconnected(name: ComponentName) {
+        ready = false
     }
 
     override fun onServiceConnected(name: ComponentName, service: IBinder) {
@@ -54,6 +72,8 @@ class MainActivity : Activity(), ServiceConnection {
         regMsg.what = StreamingService.MSG_REGISTER_CALLBACK
         regMsg.replyTo = messenger
         messenger.send(regMsg)
+
+        ready = true
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -68,9 +88,16 @@ class MainActivity : Activity(), ServiceConnection {
     }
 
     private fun toggleStreaming() {
-        // start
-        startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(),
-                CREATE_SCREEN_CAPTURE_REQUEST_CODE)
+        if (!isStream) {
+            // start
+            startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(),
+                    CREATE_SCREEN_CAPTURE_REQUEST_CODE)
+        } else {
+            val msg = Message.obtain()
+            msg.what = StreamingService.MSG_STOP_STREAMING
+            msg.replyTo = callbackMessenger
+            messenger.send(msg)
+        }
     }
 
     private fun startStreaming(resultCode: Int, data: Intent) {
@@ -83,5 +110,12 @@ class MainActivity : Activity(), ServiceConnection {
     }
 
     private fun updateState(state: StreamState?) {
+        if (ready && state != null) {
+            isStream = state.isStream
+            startButton.isEnabled = true
+            startButton.text = if (isStream) "Streaming" else "Start"
+        }else {
+            startButton.isEnabled = false
+        }
     }
 }
