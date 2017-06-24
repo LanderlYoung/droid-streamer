@@ -43,6 +43,7 @@ class StreamingService : Service(), Handler.Callback {
 
     override fun onCreate() {
         super.onCreate()
+        Log.i(TAG, "onCreate")
         messenger = Messenger(Handler(this))
     }
 
@@ -62,7 +63,10 @@ class StreamingService : Service(), Handler.Callback {
     }
 
     override fun onDestroy() {
+        super.onDestroy()
         Log.i(TAG, "onDestroy")
+
+        streamManager?.release()
     }
 
     private fun startForeground() {
