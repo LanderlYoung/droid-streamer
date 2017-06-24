@@ -40,7 +40,7 @@ private constructor(projectionResultCode: Int,
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
             onStreamStopListener?.run {
-                onStreamStop()
+                invoke()
             }
         }
     }
@@ -59,11 +59,11 @@ private constructor(projectionResultCode: Int,
         } catch (e: IOException) {
             throw IllegalStateException("cannot create h264 encoder", e)
         }
-        videoEncoder.setCallbackOnHandler(dataSink, callbackHandler)
+        videoEncoder.setCallbackOnHandler(DataSinkAdapter(dataSink), callbackHandler)
         val format =  MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height)
         format.setInteger(MediaFormat.KEY_BIT_RATE, 4 * 1000 * 1000)
         format.setInteger(MediaFormat.KEY_FRAME_RATE, 24)
-        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 5)
+        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2)
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
                 MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
         videoEncoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
@@ -122,6 +122,30 @@ private constructor(projectionResultCode: Int,
         videoEncoder.release()
     }
 
+    private class DataSinkAdapter(private val dataSink: DataSink) : MediaCodec.Callback() {
+        override fun onInputBufferAvailable(codec: MediaCodec, index: Int) {
+            // ignore
+        }
+
+        override fun onOutputBufferAvailable(codec: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {
+            val byteBuffer = codec.getOutputBuffer(index)
+            dataSink.onBufferAvailable(byteBuffer,
+                    info.presentationTimeUs,
+                    (info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0)
+            codec.releaseOutputBuffer(index, false)
+        }
+
+        override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
+            dataSink.onFormatChanged(format)
+        }
+
+        override fun onError(codec: MediaCodec, e: MediaCodec.CodecException) {
+            dataSink.onError(e)
+        }
+    }
+
+
+
     class Builder {
         private var projectionResultCode: Int = 0
 
@@ -152,7 +176,7 @@ private constructor(projectionResultCode: Int,
             this.callbackHandler = callbackHandler
         }
 
-        fun streamStopListener(streamStopListener: OnStreamStopListener?) = apply {
+        fun streamStopListener(streamStopListener: OnStreamStopListener) = apply {
             this.streamStopListener = streamStopListener
         }
 
@@ -179,16 +203,4 @@ private constructor(projectionResultCode: Int,
     }
 }
 
-abstract class DataSink : MediaCodec.Callback() {
-    override fun onOutputBufferAvailable(codec: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {}
-
-    override fun onInputBufferAvailable(codec: MediaCodec, index: Int) {}
-
-    override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {}
-
-    override fun onError(codec: MediaCodec, e: MediaCodec.CodecException) {}
-}
-
-interface OnStreamStopListener {
-    fun onStreamStop()
-}
+typealias OnStreamStopListener = () -> Unit

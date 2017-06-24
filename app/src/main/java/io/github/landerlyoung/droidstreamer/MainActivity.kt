@@ -6,10 +6,10 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.*
 import android.util.Log
+import io.github.landerlyoung.droidstreamer.service.StreamState
 import io.github.landerlyoung.droidstreamer.service.StreamingService
 import org.jetbrains.anko.mediaProjectionManager
 import org.jetbrains.anko.toast
-
 
 class MainActivity : Activity(), ServiceConnection {
 
@@ -18,16 +18,18 @@ class MainActivity : Activity(), ServiceConnection {
         const val CREATE_SCREEN_CAPTURE_REQUEST_CODE: Int = 0xbabe
     }
 
-    private var projectionIntent: Intent? = null
-    private var projectionResultCode = 0
-
-    private var messenger: Messenger? = null
+    private lateinit var messenger: Messenger
     private val callbackMessenger = Messenger(Handler { msg ->
+        when (msg.what) {
+            StreamingService.MSG_UPDATE_STREAM_STATES -> {
+                val state = msg.obj as? StreamState
+                updateState(state)
+            }
+        }
 
         Log.i(TAG, "callbackMessenger msg:$msg")
         true
     })
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,9 +50,10 @@ class MainActivity : Activity(), ServiceConnection {
     override fun onServiceConnected(name: ComponentName, service: IBinder) {
         messenger = Messenger(service)
 
-        projectionIntent?.let { intent ->
-            startStreaming(projectionResultCode, intent)
-        }
+        val regMsg = Message.obtain()
+        regMsg.what = StreamingService.MSG_REGISTER_CALLBACK
+        regMsg.replyTo = messenger
+        messenger.send(regMsg)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -59,26 +62,26 @@ class MainActivity : Activity(), ServiceConnection {
             if (resultCode != RESULT_OK || data == null) {
                 toast("denied")
             } else {
-                if (!startStreaming(resultCode, data)) {
-                    projectionIntent = data
-                    projectionResultCode = resultCode
-                }
+                startStreaming(resultCode, data)
             }
         }
     }
 
     private fun toggleStreaming() {
         // start
-        startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(), CREATE_SCREEN_CAPTURE_REQUEST_CODE)
+        startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(),
+                CREATE_SCREEN_CAPTURE_REQUEST_CODE)
     }
 
-    private fun startStreaming(resultCode: Int, data: Intent): Boolean = messenger?.run { ->
+    private fun startStreaming(resultCode: Int, data: Intent) {
         val msg = Message.obtain()
         msg.what = StreamingService.MSG_START_STREAMING
         msg.obj = data
         msg.arg1 = resultCode
         msg.replyTo = callbackMessenger
-        send(msg)
-        true
-    } ?: false
+        messenger.send(msg)
+    }
+
+    private fun updateState(state: StreamState?) {
+    }
 }
