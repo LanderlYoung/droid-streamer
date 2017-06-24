@@ -57,8 +57,10 @@ class StreamingService : Service() {
         })
     }
 
+    var mgr: Any? = null
+
     fun startStreaming(intent: Intent, resultCode: Int) {
-        val mgr = ScreenMirrorManager.build {
+        mgr = ScreenMirrorManager.build {
             projection(resultCode, intent)
             dataSink(object : DataSink() {
                 var fileChannel: FileChannel? = null
@@ -67,8 +69,7 @@ class StreamingService : Service() {
                 }
 
                 override fun onOutputBufferAvailable(codec: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {
-                    super.onOutputBufferAvailable(codec, index, info)
-                    Log.i(TAG, "onOutputBufferAvailable: ")
+                    Log.i(TAG, "onOutputBufferAvailable index:$index flag:${info.flags}")
                     if (fileChannel == null) {
                         val output = File(Global.app.externalCacheDir, "cap_${System.currentTimeMillis()}.h264")
                         fileChannel = FileOutputStream(output)
@@ -80,12 +81,14 @@ class StreamingService : Service() {
                     Log.i(TAG, "write buffer")
                     fileChannel?.write(buffer)
                     codec.releaseOutputBuffer(index, false)
-
                 }
 
                 override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
-                    super.onOutputFormatChanged(codec, format)
                     Log.i(TAG, "onOutputFormatChanged: ")
+                }
+
+                override fun onError(codec: MediaCodec, e: MediaCodec.CodecException) {
+                    Log.i(TAG, "onError")
                 }
 
             }, Global.secondaryThreadHandler)

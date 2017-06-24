@@ -40,7 +40,7 @@ private constructor(projectionResultCode: Int,
         }
         h264Codec.setCallbackOnHandler(dataSink, callbackHandler)
         val format =  MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height)
-        format.setInteger(MediaFormat.KEY_BIT_RATE, 1000 * 1000)
+        format.setInteger(MediaFormat.KEY_BIT_RATE, 4 * 1000 * 1000)
         format.setInteger(MediaFormat.KEY_FRAME_RATE, 24)
         format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 5)
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
