@@ -4,15 +4,17 @@ import android.media.MediaFormat
 import java.nio.ByteBuffer
 
 /**
- * <pre>
+ * ```
  * Author: taylorcyang@tencent.com
  * Date:   2017-06-24
  * Time:   14:37
  * Life with Passion, Code with Creativity.
- * </pre>
+ * ```
  */
 interface DataSink {
     fun onBufferAvailable(buffer: ByteBuffer, presentationTimeUs: Long, isKeyFrame: Boolean)
+
+    fun onEnd()
 
     fun onFormatChanged(format: MediaFormat)
 

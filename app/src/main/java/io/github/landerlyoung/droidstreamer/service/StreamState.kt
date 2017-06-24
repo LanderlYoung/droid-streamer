@@ -11,20 +11,21 @@ import android.os.Parcelable
  * Life with Passion, Code with Creativity.
  * ```
  */
-data class StreamState(val state: StreamingService.StreamingState) : Parcelable {
+data class StreamState(val isStream: Boolean) : Parcelable {
     companion object {
-        @JvmField
-        val CREATOR: Parcelable.Creator<StreamState> = object : Parcelable.Creator<StreamState> {
+        @JvmField val CREATOR: Parcelable.Creator<StreamState> = object : Parcelable.Creator<StreamState> {
             override fun createFromParcel(source: Parcel): StreamState = StreamState(source)
             override fun newArray(size: Int): Array<StreamState?> = arrayOfNulls(size)
         }
     }
 
-    constructor(source: Parcel) : this(StreamingService.StreamingState.values()[source.readInt()])
+    constructor(source: Parcel) : this(
+            1 == source.readInt()
+    )
 
     override fun describeContents() = 0
 
     override fun writeToParcel(dest: Parcel, flags: Int) {
-        dest.writeInt(state.ordinal)
+        dest.writeInt((if (isStream) 1 else 0))
     }
 }

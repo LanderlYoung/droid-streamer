@@ -1,0 +1,55 @@
+package io.github.landerlyoung.droidstreamer.service
+
+import android.media.MediaFormat
+import android.util.Log
+import java.io.OutputStream
+import java.net.ServerSocket
+import java.nio.ByteBuffer
+
+
+/**
+ * ```
+ * Author: taylorcyang@tencent.com
+ * Date:   2017-06-24
+ * Time:   16:08
+ * Life with Passion, Code with Creativity.
+ * ```
+ */
+class TcpDataSink : DataSink {
+    companion object {
+        const val TAG = "TcpDataSink"
+        private const val port = 8888
+    }
+
+    var output: OutputStream? = null
+
+    override fun onBufferAvailable(buffer: ByteBuffer, presentationTimeUs: Long, isKeyFrame: Boolean) {
+        if (output == null) {
+            Log.i(TAG, "listen prot:$port ")
+            val socket = ServerSocket(port).accept()
+            output = socket.getOutputStream()
+            Log.i(TAG, "get client $output")
+        }
+
+        val out = output!!
+
+        Log.i(TAG, "onBufferAvailable  ${buffer.remaining()}@$presentationTimeUs ")
+
+        while (buffer.remaining() > 0) {
+            out.write(buffer.get().toInt())
+        }
+        out.flush()
+    }
+
+    override fun onEnd() {
+        output?.use {
+            // close finally
+        }
+    }
+
+    override fun onFormatChanged(format: MediaFormat) {
+    }
+
+    override fun onError(e: Exception) {
+    }
+}

@@ -2,7 +2,6 @@ package io.github.landerlyoung.droidstreamer.service
 
 import android.app.Service
 import android.content.Intent
-import android.media.MediaFormat
 import android.os.Handler
 import android.os.Message
 import android.os.Messenger
@@ -10,25 +9,21 @@ import android.os.RemoteException
 import android.util.Log
 import io.github.landerlyoung.droidstreamer.Global
 import java.io.File
-import java.io.FileOutputStream
-import java.nio.ByteBuffer
-import java.nio.channels.FileChannel
 
 /**
- * <pre>
+ * ```
  * Author: taylorcyang@tencent.com
  * Date:   2017-06-13
  * Time:   23:23
  * Life with Passion, Code with Creativity.
- * </pre>
+ * ```
  */
 class StreamingService : Service(), Handler.Callback {
     private lateinit var messenger: Messenger
     private var streamManager: ScreenMirrorManager? = null
     private val callbackList: MutableList<Messenger> = mutableListOf()
     private val currentState: StreamState
-        get() = StreamState(StreamingState.IDEL)
-
+        get() = StreamState(false)
 
     companion object {
         const val TAG = "StreamingService"
@@ -42,17 +37,6 @@ class StreamingService : Service(), Handler.Callback {
 
         // callback
         const val MSG_UPDATE_STREAM_STATES = 6
-    }
-
-    enum class StreamingState {
-        IDEL,
-        STREAMING;
-
-        fun fromName(name: String) = try {
-            StreamingState.valueOf(name)
-        } catch (e: IllegalArgumentException) {
-            IDEL
-        }
     }
 
     override fun onCreate() {
@@ -110,31 +94,9 @@ class StreamingService : Service(), Handler.Callback {
     fun startStream(intent: Intent, resultCode: Int) {
         streamManager = ScreenMirrorManager.build {
             projection(resultCode, intent)
-            dataSink(object : DataSink {
-                var fileChannel: FileChannel? = null
-
-                override fun onBufferAvailable(buffer: ByteBuffer, presentationTimeUs: Long, isKeyFrame: Boolean) {
-                    Log.i(TAG, "onBufferAvailable  presentationTimeUs:$presentationTimeUs isKeyFrame:$isKeyFrame")
-
-                    if (fileChannel == null) {
-                        val output = File(Global.app.externalCacheDir, "cap_${System.currentTimeMillis()}.h264")
-                        fileChannel = FileOutputStream(output)
-                                .channel
-
-                        Log.i(TAG, "create output file $output")
-                    }
-                    Log.i(TAG, "write buffer")
-                    fileChannel?.write(buffer)
-                }
-
-                override fun onFormatChanged(format: MediaFormat) {
-                    Log.i(TAG, "onFormatChanged: ")
-                }
-
-                override fun onError(e: Exception) {
-                    Log.i(TAG, "onError")
-                }
-            }, Global.secondaryHandler)
+            dataSink(SaveToFileDataSink("${Global.app.externalCacheDir}${File.separator}cap_${System.currentTimeMillis()}.h264"),
+                    Global.secondaryHandler)
+//            dataSink(TcpDataSink(), Global.secondaryHandler)
 
             streamStopListener {
                 stopStream()

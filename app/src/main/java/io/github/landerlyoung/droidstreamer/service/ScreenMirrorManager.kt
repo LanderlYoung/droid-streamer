@@ -17,20 +17,20 @@ import org.jetbrains.anko.mediaProjectionManager
 import java.io.IOException
 
 /**
- * <pre>
+ * ```
  * Author: taylorcyang@tencent.com
  * Date:   2017-06-23
  * Time:   21:40
  * Life with Passion, Code with Creativity.
- * </pre>
+ * ```
  */
 class ScreenMirrorManager
 private constructor(projectionResultCode: Int,
                     projectionIntent: Intent,
                     width: Int, height: Int,
-                    dataSink: DataSink,
-                    callbackHandler: Handler?,
-                    onStreamStopListener: OnStreamStopListener?) {
+                    val dataSink: DataSink,
+                    val callbackHandler: Handler?,
+                    val onStreamStopListener: OnStreamStopListener?) {
 
     private val virtualDisplay: VirtualDisplay
     private val videoEncoder: MediaCodec
@@ -39,9 +39,7 @@ private constructor(projectionResultCode: Int,
     private val displayCallback: VirtualDisplay.Callback? = null
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
-            onStreamStopListener?.run {
-                invoke()
-            }
+            onStreamStopListener?.invoke()
         }
     }
 
@@ -59,7 +57,7 @@ private constructor(projectionResultCode: Int,
         } catch (e: IOException) {
             throw IllegalStateException("cannot create h264 encoder", e)
         }
-        videoEncoder.setCallbackOnHandler(DataSinkAdapter(dataSink), callbackHandler)
+        videoEncoder.setCallbackOnHandler(DataSinkAdapter(), callbackHandler)
         val format =  MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height)
         format.setInteger(MediaFormat.KEY_BIT_RATE, 4 * 1000 * 1000)
         format.setInteger(MediaFormat.KEY_FRAME_RATE, 24)
@@ -116,13 +114,19 @@ private constructor(projectionResultCode: Int,
     }
 
     fun release() {
+        callbackHandler?.let {
+            callbackHandler.post {
+                dataSink.onEnd()
+            }
+        } ?: dataSink.onEnd()
+
         mediaProjection.stop()
         virtualDisplay.release()
         videoEncoder.stop()
         videoEncoder.release()
     }
 
-    private class DataSinkAdapter(private val dataSink: DataSink) : MediaCodec.Callback() {
+    private inner class DataSinkAdapter : MediaCodec.Callback() {
         override fun onInputBufferAvailable(codec: MediaCodec, index: Int) {
             // ignore
         }
@@ -141,10 +145,10 @@ private constructor(projectionResultCode: Int,
 
         override fun onError(codec: MediaCodec, e: MediaCodec.CodecException) {
             dataSink.onError(e)
+
+            onStreamStopListener?.invoke()
         }
     }
-
-
 
     class Builder {
         private var projectionResultCode: Int = 0
