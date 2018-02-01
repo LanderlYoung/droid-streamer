@@ -1,6 +1,8 @@
 package io.github.landerlyoung.droidstreamer.service
 
 import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.graphics.drawable.BitmapDrawable
@@ -12,7 +14,7 @@ import android.os.RemoteException
 import android.util.Log
 import io.github.landerlyoung.droidstreamer.Global
 import io.github.landerlyoung.droidstreamer.R
-import java.io.File
+import org.jetbrains.anko.notificationManager
 
 /**
  * ```
@@ -74,7 +76,10 @@ class StreamingService : Service(), Handler.Callback {
     }
 
     private fun startForeground() {
-        val noti = Notification.Builder(this)
+        notificationManager.createNotificationChannel(
+                NotificationChannel("FOR", "FOR", NotificationManager.IMPORTANCE_DEFAULT)
+        )
+        val noti = Notification.Builder(this, "FOR")
                 .setContentTitle("Streaming")
                 .setContentText("Click to see more details")
                 .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", null)
@@ -121,13 +126,14 @@ class StreamingService : Service(), Handler.Callback {
     }
 
     private fun startStream(intent: Intent, resultCode: Int) {
+        Log.i(TAG, "startStream")
         startService(Intent(this, StreamingService::class.java))
         startForeground()
 
         streamManager = ScreenMirrorManager.build {
             projection(resultCode, intent)
-            dataSink(SaveToFileDataSink("${Global.app.externalCacheDir}${File.separator}cap_${System.currentTimeMillis()}.h264"),
-                    Global.secondaryHandler)
+//            dataSink(SaveToFileDataSink("${Global.app.externalCacheDir}${File.separator}cap_${System.currentTimeMillis()}.h264"),
+//                    Global.secondaryHandler)
             dataSink(TcpDataSink(), Global.secondaryHandler)
 
             streamStopListener {

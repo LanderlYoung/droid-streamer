@@ -17,6 +17,7 @@
         android:indeterminate="true"
         android:indeterminateOnly="true"
         style="@android:style/Widget.Material.ProgressBar"
+        android:visibility="invisible"
         />
 
     <Button

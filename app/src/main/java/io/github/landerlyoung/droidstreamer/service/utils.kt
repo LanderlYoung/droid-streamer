@@ -4,6 +4,7 @@ import io.github.landerlyoung.droidstreamer.Global
 import org.jetbrains.anko.wifiManager
 import java.net.Inet4Address
 import java.net.InetAddress
+import java.net.NetworkInterface
 
 /**
  * <pre>
@@ -20,3 +21,11 @@ fun getWifiIpAddress(): Inet4Address {
             ByteArray(4, { i -> (localIpAddressInt.shr(i * 8).and(255)).toByte() })
     ) as Inet4Address
 }
+
+fun getNetworkInterfaceIpAddress()
+        = NetworkInterface.getNetworkInterfaces()
+        .asSequence()
+        .flatMap { it.inetAddresses.asSequence() }
+        .filter { !it.isLoopbackAddress }
+        .asIterable()
+        .toList()

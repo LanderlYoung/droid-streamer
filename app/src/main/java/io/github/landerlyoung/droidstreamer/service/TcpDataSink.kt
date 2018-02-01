@@ -3,10 +3,8 @@ package io.github.landerlyoung.droidstreamer.service
 import android.media.MediaFormat
 import android.util.Log
 import java.io.OutputStream
-import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.nio.ByteBuffer
-import java.nio.channels.AsynchronousServerSocketChannel
 
 
 /**
@@ -24,23 +22,13 @@ class TcpDataSink : DataSink {
     }
 
     init {
-        val sockAddr = InetSocketAddress(port)
-
-        //create a socket channel and bind to local bind address
-        val serverSock = AsynchronousServerSocketChannel.open().bind(sockAddr)
-
-        //start to accept the connection from client
-
-        server = ServerSocket(port)
-        server.accept()
-
     }
 
     var output: OutputStream? = null
 
     override fun onBufferAvailable(buffer: ByteBuffer, presentationTimeUs: Long, isKeyFrame: Boolean) {
         if (output == null) {
-            Log.i(TAG, "listen prot:$port ")
+            Log.i(TAG, "listen port:$port ip:${getNetworkInterfaceIpAddress()}")
             val socket = ServerSocket(port).accept()
             output = socket.getOutputStream()
             Log.i(TAG, "get client $output")
