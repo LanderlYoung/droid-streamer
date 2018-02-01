@@ -1,7 +1,11 @@
 package io.github.landerlyoung.droidstreamer.service.server
 
+import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoWSD
+import io.github.landerlyoung.droidstreamer.Global
+import io.github.landerlyoung.droidstreamer.R
 import java.io.IOException
+import java.io.InputStream
 
 /**
  * ```
@@ -48,17 +52,32 @@ class HttpServer {
         TODO()
     }
 
+
     class PageServer(port: Int) : NanoWSD(port) {
-        override fun serveHttp(session: IHTTPSession?): Response {
+
+        private fun getResourceStream(resId: Int): InputStream {
+            return Global.app.resources.openRawResource(resId)
+        }
+
+        override fun serveHttp(session: IHTTPSession): Response {
+            if (session.method == NanoHTTPD.Method.GET) {
+                when (session.uri.toString()) {
+                    "/" -> // index.html
+                        return NanoHTTPD.newChunkedResponse(
+                                Response.Status.ACCEPTED,
+                                NanoHTTPD.MIME_HTML,
+                                getResourceStream(R.raw.index))
+                }
+            }
             return super.serveHttp(session)
         }
 
-        override fun isWebsocketRequested(session: IHTTPSession?): Boolean {
+        override fun isWebsocketRequested(session: IHTTPSession): Boolean {
             return super.isWebsocketRequested(session)
         }
 
 
-        override fun openWebSocket(handshake: IHTTPSession?): WebSocket {
+        override fun openWebSocket(handshake: IHTTPSession): WebSocket {
             TODO("not implemented")
         }
     }
