@@ -5,7 +5,7 @@ import android.os.Parcelable
 
 /**
  * ```
- * Author: taylorcyang@tencent.com
+ * Author: landerlyoung@gmail.com
  * Date:   2017-06-24
  * Time:   15:04
  * Life with Passion, Code with Creativity.

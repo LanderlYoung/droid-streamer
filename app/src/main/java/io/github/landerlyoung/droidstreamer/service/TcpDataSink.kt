@@ -3,13 +3,15 @@ package io.github.landerlyoung.droidstreamer.service
 import android.media.MediaFormat
 import android.util.Log
 import java.io.OutputStream
+import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.nio.ByteBuffer
+import java.nio.channels.AsynchronousServerSocketChannel
 
 
 /**
  * ```
- * Author: taylorcyang@tencent.com
+ * Author: landerlyoung@gmail.com
  * Date:   2017-06-24
  * Time:   16:08
  * Life with Passion, Code with Creativity.
@@ -19,6 +21,19 @@ class TcpDataSink : DataSink {
     companion object {
         const val TAG = "TcpDataSink"
         private const val port = 8888
+    }
+
+    init {
+        val sockAddr = InetSocketAddress(port)
+
+        //create a socket channel and bind to local bind address
+        val serverSock = AsynchronousServerSocketChannel.open().bind(sockAddr)
+
+        //start to accept the connection from client
+
+        server = ServerSocket(port)
+        server.accept()
+
     }
 
     var output: OutputStream? = null

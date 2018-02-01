@@ -9,7 +9,7 @@ import android.os.Handler
 
 /**
  * <pre>
- * Author: taylorcyang@tencent.com
+ * Author: landerlyoung@gmail.com
  * Date:   2017-06-24
  * Time:   08:57
  * Life with Passion, Code with Creativity.

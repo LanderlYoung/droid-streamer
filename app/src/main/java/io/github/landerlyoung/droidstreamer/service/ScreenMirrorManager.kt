@@ -18,7 +18,7 @@ import java.io.IOException
 
 /**
  * ```
- * Author: taylorcyang@tencent.com
+ * Author: landerlyoung@gmail.com
  * Date:   2017-06-23
  * Time:   21:40
  * Life with Passion, Code with Creativity.

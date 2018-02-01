@@ -10,7 +10,7 @@ import java.nio.channels.FileChannel
 
 /**
  * ```
- * Author: taylorcyang@tencent.com
+ * Author: landerlyoung@gmail.com
  * Date:   2017-06-24
  * Time:   15:45
  * Life with Passion, Code with Creativity.

@@ -4,7 +4,11 @@ import android.app.Notification
 import android.app.Service
 import android.content.Intent
 import android.graphics.drawable.BitmapDrawable
-import android.os.*
+import android.os.Handler
+import android.os.IBinder
+import android.os.Message
+import android.os.Messenger
+import android.os.RemoteException
 import android.util.Log
 import io.github.landerlyoung.droidstreamer.Global
 import io.github.landerlyoung.droidstreamer.R
@@ -12,7 +16,7 @@ import java.io.File
 
 /**
  * ```
- * Author: taylorcyang@tencent.com
+ * Author: landerlyoung@gmail.com
  * Date:   2017-06-13
  * Time:   23:23
  * Life with Passion, Code with Creativity.
@@ -73,7 +77,7 @@ class StreamingService : Service(), Handler.Callback {
         val noti = Notification.Builder(this)
                 .setContentTitle("Streaming")
                 .setContentText("Click to see more details")
-//                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", null)
+                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", null)
                 .setSmallIcon(R.drawable.ic_cast_connected)
                 .setLargeIcon((resources.getDrawable(R.mipmap.ic_launcher_round) as BitmapDrawable).bitmap)
                 .build()
@@ -116,7 +120,7 @@ class StreamingService : Service(), Handler.Callback {
         return true
     }
 
-    fun startStream(intent: Intent, resultCode: Int) {
+    private fun startStream(intent: Intent, resultCode: Int) {
         startService(Intent(this, StreamingService::class.java))
         startForeground()
 
@@ -124,7 +128,7 @@ class StreamingService : Service(), Handler.Callback {
             projection(resultCode, intent)
             dataSink(SaveToFileDataSink("${Global.app.externalCacheDir}${File.separator}cap_${System.currentTimeMillis()}.h264"),
                     Global.secondaryHandler)
-//            dataSink(TcpDataSink(), Global.secondaryHandler)
+            dataSink(TcpDataSink(), Global.secondaryHandler)
 
             streamStopListener {
                 stopStream()
