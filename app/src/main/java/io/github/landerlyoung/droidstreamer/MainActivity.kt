@@ -42,10 +42,15 @@ class MainActivity : Activity(), ServiceConnection {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        startButton = findViewById(R.id.stream_button) as Button
+        startButton = findViewById(R.id.stream_button)
         startButton.setOnClickListener {
             toggleStreaming()
         }
+
+        // todo, debug code
+        Global.mainHandler.postDelayed({
+            toggleStreaming()
+        }, 500L)
 
         bindService(Intent(this, StreamingService::class.java), this, BIND_AUTO_CREATE)
     }
