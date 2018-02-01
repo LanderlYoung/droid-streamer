@@ -1,20 +1,20 @@
 package io.github.landerlyoung.droidstreamer.service
 
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.graphics.drawable.BitmapDrawable
-import android.os.Handler
-import android.os.IBinder
-import android.os.Message
-import android.os.Messenger
-import android.os.RemoteException
+import android.os.*
+import android.support.v4.app.NotificationCompat
+import android.support.v4.content.ContextCompat
 import android.util.Log
 import io.github.landerlyoung.droidstreamer.Global
 import io.github.landerlyoung.droidstreamer.R
+import io.github.landerlyoung.droidstreamer.service.server.HttpServer
 import org.jetbrains.anko.notificationManager
+import java.io.File
+import java.net.Inet4Address
 
 /**
  * ```
@@ -27,6 +27,7 @@ import org.jetbrains.anko.notificationManager
 class StreamingService : Service(), Handler.Callback {
     private lateinit var messenger: Messenger
     private var streamManager: ScreenMirrorManager? = null
+    private var httpServer: HttpServer? = null
     private val callbackList: MutableList<Messenger> = mutableListOf()
     private val currentState: StreamState
         get() = StreamState(streamManager != null)
@@ -45,6 +46,10 @@ class StreamingService : Service(), Handler.Callback {
         const val MSG_UPDATE_STREAM_STATES = 6
 
         const val NOTIFICATION_ID = 100
+
+        private const val KEY_PROJECTION_INTENT = "projection_intent"
+        private const val KEY_PROJECTION_RESULT_CODE = "projection_intent_result_code"
+        private const val KEY_START_STREAM = "start_stream"
     }
 
     override fun onCreate() {
@@ -65,6 +70,10 @@ class StreamingService : Service(), Handler.Callback {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.i(TAG, "onStartCommand: $intent")
+        if (intent != null && intent.getBooleanExtra(KEY_START_STREAM, false)) {
+            startForeground()
+            performStartStream(intent)
+        }
         return START_NOT_STICKY
     }
 
@@ -76,17 +85,20 @@ class StreamingService : Service(), Handler.Callback {
     }
 
     private fun startForeground() {
-        notificationManager.createNotificationChannel(
-                NotificationChannel("FOR", "FOR", NotificationManager.IMPORTANCE_DEFAULT)
-        )
-        val noti = Notification.Builder(this, "FOR")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            notificationManager.createNotificationChannel(NotificationChannel("FOR", "FOR", NotificationManager.IMPORTANCE_LOW))
+        }
+
+        NotificationCompat.Builder(this, "FOR")
                 .setContentTitle("Streaming")
                 .setContentText("Click to see more details")
                 .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", null)
                 .setSmallIcon(R.drawable.ic_cast_connected)
-                .setLargeIcon((resources.getDrawable(R.mipmap.ic_launcher_round) as BitmapDrawable).bitmap)
+                .setLargeIcon((ContextCompat.getDrawable(this, R.mipmap.ic_launcher_round) as BitmapDrawable).bitmap)
                 .build()
-        startForeground(NOTIFICATION_ID, noti)
+                .also {
+                    startForeground(NOTIFICATION_ID, it)
+                }
     }
 
     override fun handleMessage(msg: Message): Boolean {
@@ -97,7 +109,7 @@ class StreamingService : Service(), Handler.Callback {
             }
             MSG_START_STREAMING -> {
                 msg.obj?.run {
-                    startStream(this as Intent, msg.arg1)
+                    requestStartStream(this as Intent, msg.arg1)
                 }
                 notifyState(currentState, msg.replyTo)
             }
@@ -125,26 +137,56 @@ class StreamingService : Service(), Handler.Callback {
         return true
     }
 
-    private fun startStream(intent: Intent, resultCode: Int) {
-        Log.i(TAG, "startStream")
-        startService(Intent(this, StreamingService::class.java))
-        startForeground()
+    private fun requestStartStream(projectionIntent: Intent, resultCode: Int) {
+        Log.i(TAG, "requestStartStream")
 
-        streamManager = ScreenMirrorManager.build {
-            projection(resultCode, intent)
-//            dataSink(SaveToFileDataSink("${Global.app.externalCacheDir}${File.separator}cap_${System.currentTimeMillis()}.h264"),
-//                    Global.secondaryHandler)
-            dataSink(TcpDataSink(), Global.secondaryHandler)
+        ContextCompat.startForegroundService(this, Intent(this, StreamingService::class.java).also {
+            it.putExtra(KEY_PROJECTION_INTENT, projectionIntent)
+            it.putExtra(KEY_PROJECTION_RESULT_CODE, resultCode)
+            it.putExtra(KEY_START_STREAM, true)
+        })
 
-            streamStopListener {
+    }
+
+    private fun performStartStream(startIntent: Intent) {
+        val projectionIntent: Intent? = startIntent.getParcelableExtra(KEY_PROJECTION_INTENT)
+        val resultCode: Int = startIntent.getIntExtra(KEY_PROJECTION_RESULT_CODE, 0)
+
+        Global.secondaryHandler.post {
+            stopStream()
+            if (projectionIntent != null) {
                 stopStream()
-            }
+                val server = startHttpServer()
+                val stream = startScreenStream(projectionIntent, resultCode, server)
 
-            streamSize(720, 1280)
+                notifyStreaming(server, stream)
+            }
         }
     }
 
+    private fun startHttpServer() = HttpServer().also {
+        httpServer = it
+    }
+
+    private fun startScreenStream(projectionIntent: Intent, resultCode: Int, server: HttpServer) =
+            ScreenMirrorManager.build {
+                projection(resultCode, projectionIntent)
+                dataSink(SaveToFileDataSink("${Global.app.externalCacheDir}${File.separator}cap_${System.currentTimeMillis()}.h264"),
+                        Global.secondaryHandler)
+                //            dataSink(TcpDataSink(), Global.secondaryHandler)
+                // dataSink to HttpServer
+
+                streamStopListener {
+                    stopStream()
+                }
+
+                streamSize(720, 1280)
+            }.also {
+                streamManager = it
+            }
+
     private fun stopStream() {
+        httpServer?.stopServer()
         streamManager?.release()
         streamManager = null
 
@@ -154,9 +196,13 @@ class StreamingService : Service(), Handler.Callback {
         stopSelf()
     }
 
+    private fun notifyStreaming(server: HttpServer, stream: ScreenMirrorManager) {
+        Log.i(TAG, "notifyStreaming httpServer port:${server.listeningPort} localIp:${getNetworkInterfaceIpAddress().filter { it is Inet4Address }}")
+    }
+
     private fun notifyState(state: StreamState, replyMessenger: Messenger?): Boolean {
         Log.i(TAG, "notifyState: ")
-        
+
         replyMessenger?.let {
             try {
                 val msg = Message.obtain()

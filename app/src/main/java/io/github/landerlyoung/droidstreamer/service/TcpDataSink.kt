@@ -3,6 +3,7 @@ package io.github.landerlyoung.droidstreamer.service
 import android.media.MediaFormat
 import android.util.Log
 import java.io.OutputStream
+import java.net.Inet4Address
 import java.net.ServerSocket
 import java.nio.ByteBuffer
 
@@ -28,7 +29,7 @@ class TcpDataSink : DataSink {
 
     override fun onBufferAvailable(buffer: ByteBuffer, presentationTimeUs: Long, isKeyFrame: Boolean) {
         if (output == null) {
-            Log.i(TAG, "listen port:$port ip:${getNetworkInterfaceIpAddress()}")
+            Log.i(TAG, "listen port:$port ip:${getNetworkInterfaceIpAddress().filter { it is Inet4Address }}")
             val socket = ServerSocket(port).accept()
             output = socket.getOutputStream()
             Log.i(TAG, "get client $output")
