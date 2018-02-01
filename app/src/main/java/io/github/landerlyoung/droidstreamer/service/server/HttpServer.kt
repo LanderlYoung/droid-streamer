@@ -7,6 +7,7 @@ import io.github.landerlyoung.droidstreamer.Global
 import io.github.landerlyoung.droidstreamer.R
 import java.io.IOException
 import java.io.InputStream
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 /**
@@ -44,6 +45,7 @@ class HttpServer {
             val server = PageServer(it)
             try {
                 server.start(DEFAULT_CONNECTION_TIME_OUT)
+                server.setAsyncRunner(PoolAsyncRunner)
                 return server
             } catch (e: IOException) {
             }
@@ -138,6 +140,26 @@ class HttpServer {
                     Log.i(TAG, "ws onException $exception")
                 }
             }
+        }
+    }
+
+    private object PoolAsyncRunner : NanoHTTPD.AsyncRunner {
+        val running = Collections.synchronizedList(mutableListOf<NanoHTTPD.ClientHandler>())
+
+        override fun closeAll() {
+            running.forEach {
+                it.close()
+            }
+        }
+
+        override fun closed(clientHandler: NanoHTTPD.ClientHandler) {
+            running.remove(clientHandler)
+            clientHandler.close()
+        }
+
+        override fun exec(code: NanoHTTPD.ClientHandler) {
+            running.add(code)
+            Global.ioThreadPool.submit(code)
         }
     }
 }

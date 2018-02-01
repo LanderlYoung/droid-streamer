@@ -3,6 +3,10 @@ package io.github.landerlyoung.droidstreamer
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -18,14 +22,20 @@ object Global {
 
     val app: DroidApplication
         get() = mApp.get() ?: throw IllegalStateException("application is not set")
+
     private val mSecondaryThread: HandlerThread
     val secondaryHandler: Handler
+
     val mainHandler = Handler(Looper.getMainLooper())
+
+    val ioThreadPool: ExecutorService
 
     init {
         mSecondaryThread = HandlerThread("SecondaryThread")
         mSecondaryThread.start()
         secondaryHandler = Handler(mSecondaryThread.looper)
+        ioThreadPool = ThreadPoolExecutor(2, 2, 60, TimeUnit.SECONDS, LinkedBlockingQueue<Runnable>())
+                .apply { allowCoreThreadTimeOut(true) }
     }
 
     fun installApplication(app: DroidApplication) {
