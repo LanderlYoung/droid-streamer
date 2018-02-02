@@ -7,10 +7,7 @@ import io.github.landerlyoung.droidstreamer.Global
 import io.github.landerlyoung.droidstreamer.R
 import io.github.landerlyoung.droidstreamer.service.DataSink
 import io.github.landerlyoung.droidstreamer.service.flv.FlvMuxer
-import java.io.ByteArrayOutputStream
-import java.io.IOException
-import java.io.InputStream
-import java.io.OutputStream
+import java.io.*
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -106,7 +103,7 @@ class HttpServer {
         override fun openWebSocket(handshake: IHTTPSession): WebSocket {
             return object : WebSocket(handshake) {
 
-                val input = getResourceStream(R.raw.flv_mine)
+                val input = FileInputStream(File(Global.app.getExternalFilesDir("flv_video"), "flv_mine.flv"))
                 val buffer = ByteArray(1024)
 
                 override fun send(payload: ByteArray?) {
@@ -139,7 +136,7 @@ class HttpServer {
                             Global.secondaryHandler.postDelayed(runnable, 2)
                         }
                     }
-//                    runnable.run()
+                    runnable.run()
                 }
 
                 override fun onClose(code: WebSocketFrame.CloseCode, reason: String?, initiatedByRemote: Boolean) {
@@ -158,7 +155,7 @@ class HttpServer {
                     Log.i(TAG, "ws onException $exception")
                 }
             }.apply {
-                sok = this
+                //                sok = this
             }
         }
     }

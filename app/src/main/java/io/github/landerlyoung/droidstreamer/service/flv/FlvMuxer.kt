@@ -15,6 +15,10 @@ import java.nio.ByteBuffer
  * Time:   11:09
  * Life with Passion, Code with Creativity.
  * ```
+ * implementation not work...
+ *
+ * may be this helps
+ * https://github.com/EricLi22/FFmpegSample
  */
 class FlvMuxer(output: OutputStream) : DataSink {
     private val sink = DataOutputStream(output)

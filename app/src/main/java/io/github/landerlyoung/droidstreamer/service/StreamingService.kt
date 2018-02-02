@@ -13,6 +13,7 @@ import io.github.landerlyoung.droidstreamer.Global
 import io.github.landerlyoung.droidstreamer.R
 import io.github.landerlyoung.droidstreamer.service.server.HttpServer
 import org.jetbrains.anko.notificationManager
+import java.io.File
 import java.net.Inet4Address
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -175,8 +176,8 @@ class StreamingService : Service(), Handler.Callback {
     private fun startScreenStream(projectionIntent: Intent, resultCode: Int, server: HttpServer) =
             ScreenMirrorManager.build {
                 projection(resultCode, projectionIntent)
-//                dataSink(SaveToFileDataSink("${Global.app.externalCacheDir}${File.separator}cap_${System.currentTimeMillis()}.h264"),
-//                        Global.secondaryHandler)
+                dataSink(SaveToFileDataSink(File(getExternalFilesDir("flv_video"), "h264.raw").absolutePath),
+                        Global.secondaryHandler)
                 //            dataSink(TcpDataSink(), Global.secondaryHandler)
                 // dataSink to HttpServer
 //
@@ -184,7 +185,7 @@ class StreamingService : Service(), Handler.Callback {
 //                        File(getExternalFilesDir("flv_video"), "flv_mine.flv")
 //                )), Global.secondaryHandler)
 
-                dataSink(server.h264DataSink, Global.secondaryHandler)
+//                dataSink(server.h264DataSink, Global.secondaryHandler)
 
                 streamStopListener {
                     stopStream()
