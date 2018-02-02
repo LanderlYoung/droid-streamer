@@ -1,5 +1,6 @@
 package io.github.landerlyoung.droidstreamer.service
 
+import android.media.MediaCodec
 import android.media.MediaFormat
 import android.util.Log
 import java.io.File
@@ -23,8 +24,8 @@ class SaveToFileDataSink(private val fileName: String) : DataSink {
         const val TAG = "SaveToFileDataSink"
     }
 
-    override fun onBufferAvailable(buffer: ByteBuffer, presentationTimeUs: Long, isKeyFrame: Boolean) {
-        Log.i(TAG, "onBufferAvailable  presentationTimeUs:$presentationTimeUs isKeyFrame:$isKeyFrame")
+    override fun onBufferAvailable(buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
+        Log.i(TAG, "onBufferAvailable  presentationTimeUs:${info.presentationTimeUs}")
 
         if (fileChannel == null) {
             val output = File(fileName)

@@ -1,5 +1,6 @@
 package io.github.landerlyoung.droidstreamer.service
 
+import android.media.MediaCodec
 import android.media.MediaFormat
 import java.nio.ByteBuffer
 
@@ -15,7 +16,7 @@ interface DataSink {
     /**
      * on raw video buffer available (h264/h265/etc..)
      */
-    fun onBufferAvailable(buffer: ByteBuffer, presentationTimeUs: Long, isKeyFrame: Boolean)
+    fun onBufferAvailable(buffer: ByteBuffer, info: MediaCodec.BufferInfo)
 
     fun onEnd()
 

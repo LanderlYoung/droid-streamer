@@ -132,10 +132,8 @@ private constructor(projectionResultCode: Int,
 
         override fun onOutputBufferAvailable(codec: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {
             val byteBuffer = codec.getOutputBuffer(index)
-            dataSink.onBufferAvailable(byteBuffer,
-                    info.presentationTimeUs,
-                    (info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0)
-            codec.releaseOutputBuffer(index, false)
+            dataSink.onBufferAvailable(byteBuffer, info)
+           codec.releaseOutputBuffer(index, false)
         }
 
         override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {

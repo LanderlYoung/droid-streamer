@@ -1,7 +1,9 @@
 package io.github.landerlyoung.droidstreamer.service.flv
 
+import android.media.MediaCodec
 import android.media.MediaFormat
 import io.github.landerlyoung.droidstreamer.service.DataSink
+import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.OutputStream
 import java.nio.ByteBuffer
@@ -22,16 +24,17 @@ class FlvMuxer(output: OutputStream) : DataSink {
     @Volatile
     var isWriting = false
 
-    override fun onBufferAvailable(buffer: ByteBuffer, presentationTimeUs: Long, isKeyFrame: Boolean) {
+    override fun onBufferAvailable(buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
         synchronized(this) {
             try {
                 isWriting = true
                 if (!headerWritten) {
-                    writeHeader()
+                    writeHeader(sink)
                     headerWritten = true
+                    initialTime = info.presentationTimeUs
                 }
                 val length = buffer.remaining()
-                writeVideoTag(copyByteBuffer(buffer), length, presentationTimeUs, isKeyFrame)
+                writeVideoTag(copyByteBuffer(buffer), length, info)
             } finally {
                 isWriting = false
             }
@@ -54,21 +57,20 @@ class FlvMuxer(output: OutputStream) : DataSink {
         }
     }
 
-    private fun writeHeader() {
-        sink.writeByte('F'.toInt())
-        sink.writeByte('L'.toInt())
-        sink.writeByte('V'.toInt())
-        sink.writeByte(1)
-        val flag = 1
-        sink.writeByte(flag)
-        sink.writeInt(9)
+    var initialTime = 0.toLong()
 
-        // previous header size
-        sink.writeInt(0)
-        sink.flush()
-    }
 
-    private fun writeVideoTag(avcPacket: ByteArray, length: Int, presentationTimeUs: Long, isKeyFrame: Boolean) {
+    private fun writeVideoTag(avcPacket: ByteArray, length: Int, info: MediaCodec.BufferInfo) {
+        val presentationTimeUs = info.presentationTimeUs - initialTime
+        val isKeyFrame = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
+        val isCsd = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
+        val isEndOfStream = info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
+
+        if (isCsd) {
+            // don't write csd
+            return
+        }
+
         val flagSize = 5 // for AVC VIDEO
         sink.writeByte(9) // tagType
         sink.write24(length + flagSize) // dataSize
@@ -83,8 +85,12 @@ class FlvMuxer(output: OutputStream) : DataSink {
         val flag = (frameType shl 4) or codecId
         sink.writeByte(flag)
         // packet
-        sink.writeByte(1) // AVC NALU
-        sink.write24(timeMillis)
+        sink.writeByte(when { // packetType |
+            isEndOfStream -> 2
+            isCsd -> 0
+            else -> 1 // AVC NALU
+        })
+        sink.write24(if (isCsd) 0 else timeMillis)
         sink.write(avcPacket, 0, length)
 
         // previous tag size
@@ -109,5 +115,23 @@ class FlvMuxer(output: OutputStream) : DataSink {
             writeByte((i shr 8) and 0xFF)
             writeByte((i shr 0) and 0xFF)
         }
+
+        fun writeHeader(sink: DataOutputStream) {
+            sink.writeByte('F'.toInt())
+            sink.writeByte('L'.toInt())
+            sink.writeByte('V'.toInt())
+            sink.writeByte(1)
+            val flag = 1
+            sink.writeByte(flag)
+            sink.writeInt(9)
+
+            // previous header size
+            sink.writeInt(0)
+            sink.flush()
+        }
+
+        fun createFlvHeader() = ByteArrayOutputStream().apply {
+            DataOutputStream(this).use { writeHeader(it) }
+        }.toByteArray()!!
     }
 }

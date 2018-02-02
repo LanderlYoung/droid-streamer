@@ -5,8 +5,12 @@ import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoWSD
 import io.github.landerlyoung.droidstreamer.Global
 import io.github.landerlyoung.droidstreamer.R
+import io.github.landerlyoung.droidstreamer.service.DataSink
+import io.github.landerlyoung.droidstreamer.service.flv.FlvMuxer
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
+import java.io.OutputStream
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -24,6 +28,7 @@ class HttpServer {
 
         val DEFAULT_CONNECTION_TIME_OUT = TimeUnit.SECONDS.toMillis(10).toInt()
     }
+
     /**
      * HTTP & WebSocket server
      */
@@ -31,6 +36,13 @@ class HttpServer {
 
     val listeningPort: Int
         get() = httpServer.listeningPort
+
+    val h264DataSink: DataSink
+        get() = dataSink.flvMuxer
+
+    private val dataSink = StreamingFlvMuxer {
+        broadcastFrame(it)
+    }
 
     init {
         httpServer = createHttpServer()
@@ -57,16 +69,19 @@ class HttpServer {
         httpServer.stop()
     }
 
-    fun broadcastThroughWebsocket() {
-        TODO()
+    private fun broadcastFrame(frame: FrameInfo) {
+        Log.i(TAG, "broadcastFrame no:${frame.sequence} length:${frame.length}")
+        sok?.send(frame.buffer.copyOf(frame.length))
     }
 
+    @Volatile
+    var sok: NanoWSD.WebSocket? = null
 
-    class PageServer(port: Int) : NanoWSD(port) {
+    inner class PageServer(port: Int) : NanoWSD(port) {
         private val resourcesMap: Map<String, Int> = mapOf(
                 "/" to R.raw.index,
                 "/favicon.ico" to R.raw.faviocn,
-                "/flv.min.js" to R.raw.flv_min
+                "/flv.min.js" to R.raw.flv_full
         )
 
         private fun getResourceStream(resId: Int): InputStream {
@@ -90,8 +105,17 @@ class HttpServer {
 
         override fun openWebSocket(handshake: IHTTPSession): WebSocket {
             return object : WebSocket(handshake) {
-                val input = getResourceStream(R.raw.flv)
+
+                val input = getResourceStream(R.raw.flv_mine)
                 val buffer = ByteArray(1024)
+
+                override fun send(payload: ByteArray?) {
+                    try {
+                        super.send(payload)
+                    } catch (e: IOException) {
+                        sok = null
+                    }
+                }
 
                 override fun debugFrameReceived(frame: WebSocketFrame) {
                     super.debugFrameReceived(frame)
@@ -115,7 +139,7 @@ class HttpServer {
                             Global.secondaryHandler.postDelayed(runnable, 2)
                         }
                     }
-                    runnable.run()
+//                    runnable.run()
                 }
 
                 override fun onClose(code: WebSocketFrame.CloseCode, reason: String?, initiatedByRemote: Boolean) {
@@ -123,22 +147,18 @@ class HttpServer {
                 }
 
                 override fun onPong(pong: WebSocketFrame?) {
-//                    input.read(buffer)
-//                    send(buffer)
-
                     Log.i(TAG, "ws onPong: $pong")
                 }
 
                 override fun onMessage(message: WebSocketFrame?) {
                     Log.i(TAG, "ws onMessage $message")
-
-//                    input.read(buffer)
-//                    send(buffer)
                 }
 
                 override fun onException(exception: IOException?) {
                     Log.i(TAG, "ws onException $exception")
                 }
+            }.apply {
+                sok = this
             }
         }
     }
@@ -161,5 +181,54 @@ class HttpServer {
             running.add(code)
             Global.ioThreadPool.submit(code)
         }
+    }
+
+    data class FrameInfo(val sequence: Int, val buffer: ByteArray, val length: Int)
+
+    inner class StreamingFlvMuxer(private val onNewFrame: (FrameInfo) -> Unit) {
+
+        val flvMuxer = FlvMuxer(object : OutputStream() {
+
+            private val buffers = ByteArrayOutputStream()
+
+            override fun write(b: ByteArray?, off: Int, len: Int) {
+                if (sok != null) {
+                    buffers.write(b, off, len)
+                }
+            }
+
+            override fun write(b: Int) {
+                if (sok != null) {
+                    buffers.write(b)
+                }
+            }
+
+            override fun flush() {
+                if (sok == null) {
+                    return
+                }
+                buffers.flush()
+                // a whole frame is made!
+                val frame = synchronized(this) {
+                    if (mCurrentFrame == null) {
+
+                    }
+
+                    val no = (mCurrentFrame?.sequence ?: -1) + 1
+                    FrameInfo(no, buffers.toByteArray(), buffers.size()).apply {
+                        buffers.reset()
+                        mCurrentFrame = this
+                    }
+                }
+                onNewFrame.invoke(frame)
+            }
+        })
+
+        val flvHeader = FlvMuxer.createFlvHeader()
+
+        private var mCurrentFrame: FrameInfo? = null
+
+        val currentFrame: FrameInfo?
+            get() = mCurrentFrame
     }
 }

@@ -11,11 +11,8 @@ import android.support.v4.content.ContextCompat
 import android.util.Log
 import io.github.landerlyoung.droidstreamer.Global
 import io.github.landerlyoung.droidstreamer.R
-import io.github.landerlyoung.droidstreamer.service.flv.FlvMuxer
 import io.github.landerlyoung.droidstreamer.service.server.HttpServer
 import org.jetbrains.anko.notificationManager
-import java.io.File
-import java.io.FileOutputStream
 import java.net.Inet4Address
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -182,9 +179,12 @@ class StreamingService : Service(), Handler.Callback {
 //                        Global.secondaryHandler)
                 //            dataSink(TcpDataSink(), Global.secondaryHandler)
                 // dataSink to HttpServer
-                dataSink(FlvMuxer(FileOutputStream(
-                        File(getExternalFilesDir("flv_video"), "flv.flv")
-                )), Global.secondaryHandler)
+//
+//                dataSink(FlvMuxer(FileOutputStream(
+//                        File(getExternalFilesDir("flv_video"), "flv_mine.flv")
+//                )), Global.secondaryHandler)
+
+                dataSink(server.h264DataSink, Global.secondaryHandler)
 
                 streamStopListener {
                     stopStream()

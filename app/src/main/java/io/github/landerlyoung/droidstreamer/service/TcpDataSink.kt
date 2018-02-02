@@ -1,5 +1,6 @@
 package io.github.landerlyoung.droidstreamer.service
 
+import android.media.MediaCodec
 import android.media.MediaFormat
 import android.util.Log
 import java.io.OutputStream
@@ -27,7 +28,7 @@ class TcpDataSink : DataSink {
 
     var output: OutputStream? = null
 
-    override fun onBufferAvailable(buffer: ByteBuffer, presentationTimeUs: Long, isKeyFrame: Boolean) {
+    override fun onBufferAvailable(buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
         if (output == null) {
             Log.i(TAG, "listen port:$port ip:${getNetworkInterfaceIpAddress().filter { it is Inet4Address }}")
             val socket = ServerSocket(port).accept()
@@ -37,7 +38,7 @@ class TcpDataSink : DataSink {
 
         val out = output!!
 
-        Log.i(TAG, "onBufferAvailable  ${buffer.remaining()}@$presentationTimeUs ")
+        Log.i(TAG, "onBufferAvailable  ${buffer.remaining()}@${info.presentationTimeUs}")
 
         while (buffer.remaining() > 0) {
             out.write(buffer.get().toInt())
