@@ -122,7 +122,6 @@ private constructor(projectionResultCode: Int,
 
         mediaProjection.stop()
         virtualDisplay.release()
-        videoEncoder.stop()
         videoEncoder.release()
     }
 

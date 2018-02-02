@@ -11,10 +11,13 @@ import android.support.v4.content.ContextCompat
 import android.util.Log
 import io.github.landerlyoung.droidstreamer.Global
 import io.github.landerlyoung.droidstreamer.R
+import io.github.landerlyoung.droidstreamer.service.flv.FlvMuxer
 import io.github.landerlyoung.droidstreamer.service.server.HttpServer
 import org.jetbrains.anko.notificationManager
 import java.io.File
+import java.io.FileOutputStream
 import java.net.Inet4Address
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * ```
@@ -31,6 +34,8 @@ class StreamingService : Service(), Handler.Callback {
     private val callbackList: MutableList<Messenger> = mutableListOf()
     private val currentState: StreamState
         get() = StreamState(streamManager != null)
+
+    private val startStreamCommandId = AtomicInteger()
 
     companion object {
         const val TAG = "StreamingService"
@@ -71,8 +76,10 @@ class StreamingService : Service(), Handler.Callback {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.i(TAG, "onStartCommand: $intent")
         if (intent != null && intent.getBooleanExtra(KEY_START_STREAM, false)) {
-            startForeground()
-            performStartStream(intent)
+            if (startStreamCommandId.compareAndSet(0, startId)) {
+                startForeground()
+                performStartStream(intent)
+            }
         }
         return START_NOT_STICKY
     }
@@ -171,10 +178,13 @@ class StreamingService : Service(), Handler.Callback {
     private fun startScreenStream(projectionIntent: Intent, resultCode: Int, server: HttpServer) =
             ScreenMirrorManager.build {
                 projection(resultCode, projectionIntent)
-                dataSink(SaveToFileDataSink("${Global.app.externalCacheDir}${File.separator}cap_${System.currentTimeMillis()}.h264"),
-                        Global.secondaryHandler)
+//                dataSink(SaveToFileDataSink("${Global.app.externalCacheDir}${File.separator}cap_${System.currentTimeMillis()}.h264"),
+//                        Global.secondaryHandler)
                 //            dataSink(TcpDataSink(), Global.secondaryHandler)
                 // dataSink to HttpServer
+                dataSink(FlvMuxer(FileOutputStream(
+                        File(getExternalFilesDir("flv_video"), "flv.flv")
+                )), Global.secondaryHandler)
 
                 streamStopListener {
                     stopStream()
@@ -186,6 +196,10 @@ class StreamingService : Service(), Handler.Callback {
             }
 
     private fun stopStream() {
+        val startCommandId = startStreamCommandId.get()
+        if (startCommandId != 0) {
+            startStreamCommandId.set(0)
+        }
         httpServer?.stopServer()
         streamManager?.release()
         streamManager = null
@@ -193,7 +207,7 @@ class StreamingService : Service(), Handler.Callback {
         broadcastState()
 
         stopForeground(true)
-        stopSelf()
+        stopSelf(startCommandId)
     }
 
     private fun notifyStreaming(server: HttpServer, stream: ScreenMirrorManager) {
